@@ -22,74 +22,102 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             width: 800px;
         }
+        #loading {
+            text-align: center;
+            font-size: 18px;
+            color: #666;
+            margin: 20px;
+        }
     </style>
 </head>
 <body>
+    <div id="loading">Adatok betöltése...</div>
     <div id="plot"></div>
 
     <script>
-        // Statikus adatok (a Python kód alapján)
-        const dates = [
-            '2023-01-01', '2023-03-01', '2023-06-01', '2023-09-01',
-            '2023-12-01', '2024-01-01', '2024-03-01'
-        ];
-        const prices = [16500, 23000, 27500, 26000, 42000, 45000, 67000];
+        // API URL a Bitcoin 5 éves adataihoz
+        const API_URL = 'https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=1825&interval=daily';
 
-        // Hover szövegek előállítása
-        const hoverTexts = dates.map((date, i) => 
-            `Dátum: ${date}<br>Záróár: $${prices[i].toLocaleString('en-US', {minimumFractionDigits: 2})}`
-        );
+        // Adatok lekérése az API-ból
+        async function fetchBitcoinData() {
+            try {
+                const response = await fetch(API_URL);
+                const data = await response.json();
+                
+                // Adatok feldolgozása
+                const dates = data.prices.map(price => {
+                    const date = new Date(price[0]);
+                    return date.toISOString().split('T')[0];
+                });
+                
+                const prices = data.prices.map(price => price[1]);
 
-        // Plotly diagram konfiguráció
-        const trace = {
-            x: dates,
-            y: prices,
-            type: 'scatter',
-            mode: 'lines',
-            line: {
-                color: 'darkorange',
-                width: 0.6
-            },
-            hovertext: hoverTexts,
-            hoverinfo: 'text'
-        };
+                // Hover szövegek előállítása
+                const hoverTexts = dates.map((date, i) => 
+                    `Dátum: ${date}<br>Záróár: $${prices[i].toLocaleString('en-US', {minimumFractionDigits: 2})}`
+                );
 
-        const layout = {
-            title: {
-                text: 'Bitcoin árfolyam időbeli alakulása',
-                font: {
-                    family: 'Arial',
-                    size: 16
-                }
-            },
-            xaxis: {
-                title: 'Dátum',
-                tickangle: -45
-            },
-            yaxis: {
-                title: 'Záróár (USD)',
-                tickformat: '$,.2f'
-            },
-            template: 'simple_white',
-            hovermode: 'x unified',
-            width: 700,
-            height: 400,
-            margin: {
-                l: 50,
-                r: 50,
-                t: 50,
-                b: 100
+                // Plotly diagram konfiguráció
+                const trace = {
+                    x: dates,
+                    y: prices,
+                    type: 'scatter',
+                    mode: 'lines',
+                    line: {
+                        color: 'darkorange',
+                        width: 0.6
+                    },
+                    hovertext: hoverTexts,
+                    hoverinfo: 'text'
+                };
+
+                const layout = {
+                    title: {
+                        text: 'Bitcoin árfolyam időbeli alakulása (5 év)',
+                        font: {
+                            family: 'Arial',
+                            size: 16
+                        }
+                    },
+                    xaxis: {
+                        title: 'Dátum',
+                        tickangle: -45
+                    },
+                    yaxis: {
+                        title: 'Záróár (USD)',
+                        tickformat: '$,.2f'
+                    },
+                    template: 'simple_white',
+                    hovermode: 'x unified',
+                    width: 700,
+                    height: 400,
+                    margin: {
+                        l: 50,
+                        r: 50,
+                        t: 50,
+                        b: 100
+                    }
+                };
+
+                const config = {
+                    responsive: true,
+                    displayModeBar: true,
+                    displaylogo: false
+                };
+
+                // Betöltés szöveg elrejtése
+                document.getElementById('loading').style.display = 'none';
+
+                // Diagram megjelenítése
+                Plotly.newPlot('plot', [trace], layout, config);
+            } catch (error) {
+                console.error('Hiba az adatok lekérésekor:', error);
+                document.getElementById('loading').textContent = 'Hiba történt az adatok betöltése közben. Kérjük, próbálja újra később.';
             }
-        };
+        }
 
-        const config = {
-            responsive: true,
-            displayModeBar: true,
-            displaylogo: false
-        };
-
-        // Diagram megjelenítése
-        Plotly.newPlot('plot', [trace], layout, config);
+        // Adatok lekérése az oldal betöltésekor
+        fetchBitcoinData();
     </script>
 </body>
 </html> 
