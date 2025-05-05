@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kriptovaluta Árfolyamok</title>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/yahoo-finance2@2.3.10/dist/yahoo-finance2.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -28,29 +29,33 @@
             color: #666;
             margin: 20px;
         }
+        .error {
+            color: #ff0000;
+            text-align: center;
+            margin: 20px;
+        }
     </style>
 </head>
 <body>
-    <div id="loading">Adatok betöltése...</div>
+    <div id="loading">Adatok betöltése Yahoo Finance-ről...</div>
     <div id="plot"></div>
 
     <script>
-        // API URL a Bitcoin 5 éves adataihoz
-        const API_URL = 'https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=1825&interval=daily';
-
-        // Adatok lekérése az API-ból
-        async function fetchBitcoinData() {
+        // Yahoo Finance adatok lekérése
+        async function fetchYahooFinanceData() {
             try {
-                const response = await fetch(API_URL);
-                const data = await response.json();
+                const symbol = 'BTC-USD';
+                const queryOptions = {
+                    period1: new Date(Date.now() - 5 * 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                    period2: new Date().toISOString().split('T')[0],
+                    interval: '1d'
+                };
+
+                const result = await yahooFinance.historical(symbol, queryOptions);
                 
                 // Adatok feldolgozása
-                const dates = data.prices.map(price => {
-                    const date = new Date(price[0]);
-                    return date.toISOString().split('T')[0];
-                });
-                
-                const prices = data.prices.map(price => price[1]);
+                const dates = result.map(item => item.date.toISOString().split('T')[0]);
+                const prices = result.map(item => item.close);
 
                 // Hover szövegek előállítása
                 const hoverTexts = dates.map((date, i) => 
@@ -73,7 +78,7 @@
 
                 const layout = {
                     title: {
-                        text: 'Bitcoin árfolyam időbeli alakulása (5 év)',
+                        text: 'Bitcoin árfolyam időbeli alakulása (Yahoo Finance)',
                         font: {
                             family: 'Arial',
                             size: 16
@@ -112,12 +117,13 @@
                 Plotly.newPlot('plot', [trace], layout, config);
             } catch (error) {
                 console.error('Hiba az adatok lekérésekor:', error);
-                document.getElementById('loading').textContent = 'Hiba történt az adatok betöltése közben. Kérjük, próbálja újra később.';
+                document.getElementById('loading').innerHTML = 
+                    '<div class="error">Hiba történt az adatok betöltése közben. Kérjük, próbálja újra később.</div>';
             }
         }
 
         // Adatok lekérése az oldal betöltésekor
-        fetchBitcoinData();
+        fetchYahooFinanceData();
     </script>
 </body>
 </html> 
