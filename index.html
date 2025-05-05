@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kriptovaluta Árfolyamok</title>
-    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
-    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
-    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -17,7 +15,7 @@
             min-height: 100vh;
             background-color: #f5f5f5;
         }
-        #vis {
+        #plot {
             background: white;
             padding: 20px;
             border-radius: 8px;
@@ -27,91 +25,71 @@
     </style>
 </head>
 <body>
-    <div id="vis"></div>
+    <div id="plot"></div>
 
     <script>
-        const spec = {
-            "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
-            "description": "Kriptovaluta árfolyamok időbeli alakulása",
-            "data": {
-                "url": "https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=1825&interval=daily",
-                "format": {
-                    "type": "json",
-                    "property": "prices"
+        // Statikus adatok (a Python kód alapján)
+        const dates = [
+            '2023-01-01', '2023-03-01', '2023-06-01', '2023-09-01',
+            '2023-12-01', '2024-01-01', '2024-03-01'
+        ];
+        const prices = [16500, 23000, 27500, 26000, 42000, 45000, 67000];
+
+        // Hover szövegek előállítása
+        const hoverTexts = dates.map((date, i) => 
+            `Dátum: ${date}<br>Záróár: $${prices[i].toLocaleString('en-US', {minimumFractionDigits: 2})}`
+        );
+
+        // Plotly diagram konfiguráció
+        const trace = {
+            x: dates,
+            y: prices,
+            type: 'scatter',
+            mode: 'lines',
+            line: {
+                color: 'darkorange',
+                width: 0.6
+            },
+            hovertext: hoverTexts,
+            hoverinfo: 'text'
+        };
+
+        const layout = {
+            title: {
+                text: 'Bitcoin árfolyam időbeli alakulása',
+                font: {
+                    family: 'Arial',
+                    size: 16
                 }
             },
-            "transform": [
-                {"calculate": "datum[0]", "as": "time"},
-                {"calculate": "datum[1]", "as": "price"},
-                {"calculate": "timeFormat(datum.time, '%Y-%m-%d')", "as": "date"}
-            ],
-            "width": 700,
-            "height": 400,
-            "mark": {
-                "type": "line",
-                "color": "darkorange",
-                "strokeWidth": 1
+            xaxis: {
+                title: 'Dátum',
+                tickangle: -45
             },
-            "encoding": {
-                "x": {
-                    "field": "time",
-                    "type": "temporal",
-                    "title": "Dátum",
-                    "axis": {
-                        "format": "%Y-%m-%d",
-                        "labelAngle": -45
-                    }
-                },
-                "y": {
-                    "field": "price",
-                    "type": "quantitative",
-                    "title": "Árfolyam (USD)",
-                    "axis": {
-                        "format": "$.2f"
-                    }
-                },
-                "tooltip": [
-                    {"field": "date", "title": "Dátum"},
-                    {"field": "price", "title": "Árfolyam", "format": "$.2f"}
-                ]
+            yaxis: {
+                title: 'Záróár (USD)',
+                tickformat: '$,.2f'
             },
-            "title": {
-                "text": "Bitcoin árfolyam alakulása (5 év)",
-                "fontSize": 16,
-                "font": "Arial"
-            },
-            "config": {
-                "axis": {
-                    "labelFont": "Arial",
-                    "titleFont": "Arial"
-                }
+            template: 'simple_white',
+            hovermode: 'x unified',
+            width: 700,
+            height: 400,
+            margin: {
+                l: 50,
+                r: 50,
+                t: 50,
+                b: 100
             }
         };
 
-        // Alternatív adatforrás hozzáadása, ha a CoinGecko API nem válaszol
-        fetch(spec.data.url)
-            .then(response => response.json())
-            .catch(error => {
-                console.log("CoinGecko API hiba, statikus adatok használata");
-                spec.data = {
-                    "values": [
-                        {"time": "2023-01-01", "price": 16500},
-                        {"time": "2023-03-01", "price": 23000},
-                        {"time": "2023-06-01", "price": 27500},
-                        {"time": "2023-09-01", "price": 26000},
-                        {"time": "2023-12-01", "price": 42000},
-                        {"time": "2024-01-01", "price": 45000},
-                        {"time": "2024-03-01", "price": 67000}
-                    ]
-                };
-                delete spec.transform;
-            })
-            .finally(() => {
-                vegaEmbed('#vis', spec, {
-                    actions: true,
-                    theme: "light"
-                }).catch(console.error);
-            });
+        const config = {
+            responsive: true,
+            displayModeBar: true,
+            displaylogo: false
+        };
+
+        // Diagram megjelenítése
+        Plotly.newPlot('plot', [trace], layout, config);
     </script>
 </body>
 </html> 
