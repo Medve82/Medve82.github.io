@@ -1,1 +1,117 @@
-<h1>Welcome to Medve's page</h1>
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kriptovaluta Árfolyamok</title>
+    <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f5f5f5;
+        }
+        #vis {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            width: 800px;
+        }
+    </style>
+</head>
+<body>
+    <div id="vis"></div>
+
+    <script>
+        const spec = {
+            "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+            "description": "Kriptovaluta árfolyamok időbeli alakulása",
+            "data": {
+                "url": "https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=1825&interval=daily",
+                "format": {
+                    "type": "json",
+                    "property": "prices"
+                }
+            },
+            "transform": [
+                {"calculate": "datum[0]", "as": "time"},
+                {"calculate": "datum[1]", "as": "price"},
+                {"calculate": "timeFormat(datum.time, '%Y-%m-%d')", "as": "date"}
+            ],
+            "width": 700,
+            "height": 400,
+            "mark": {
+                "type": "line",
+                "color": "darkorange",
+                "strokeWidth": 1
+            },
+            "encoding": {
+                "x": {
+                    "field": "time",
+                    "type": "temporal",
+                    "title": "Dátum",
+                    "axis": {
+                        "format": "%Y-%m-%d",
+                        "labelAngle": -45
+                    }
+                },
+                "y": {
+                    "field": "price",
+                    "type": "quantitative",
+                    "title": "Árfolyam (USD)",
+                    "axis": {
+                        "format": "$.2f"
+                    }
+                },
+                "tooltip": [
+                    {"field": "date", "title": "Dátum"},
+                    {"field": "price", "title": "Árfolyam", "format": "$.2f"}
+                ]
+            },
+            "title": {
+                "text": "Bitcoin árfolyam alakulása (5 év)",
+                "fontSize": 16,
+                "font": "Arial"
+            },
+            "config": {
+                "axis": {
+                    "labelFont": "Arial",
+                    "titleFont": "Arial"
+                }
+            }
+        };
+
+        // Alternatív adatforrás hozzáadása, ha a CoinGecko API nem válaszol
+        fetch(spec.data.url)
+            .then(response => response.json())
+            .catch(error => {
+                console.log("CoinGecko API hiba, statikus adatok használata");
+                spec.data = {
+                    "values": [
+                        {"time": "2023-01-01", "price": 16500},
+                        {"time": "2023-03-01", "price": 23000},
+                        {"time": "2023-06-01", "price": 27500},
+                        {"time": "2023-09-01", "price": 26000},
+                        {"time": "2023-12-01", "price": 42000},
+                        {"time": "2024-01-01", "price": 45000},
+                        {"time": "2024-03-01", "price": 67000}
+                    ]
+                };
+                delete spec.transform;
+            })
+            .finally(() => {
+                vegaEmbed('#vis', spec, {
+                    actions: true,
+                    theme: "light"
+                }).catch(console.error);
+            });
+    </script>
+</body>
+</html> 
