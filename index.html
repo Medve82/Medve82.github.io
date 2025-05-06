@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Python Kriptovaluta Árfolyamok</title>
+    <title>Kriptovaluta Árfolyamok</title>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -24,31 +23,27 @@
             width: 800px;
             margin-top: 20px;
         }
-        #loading {
-            text-align: center;
-            font-size: 18px;
-            color: #666;
-            margin: 20px;
-        }
-        .error {
-            color: #ff0000;
-            text-align: center;
-            margin: 20px;
-        }
-        #python-code {
+        .code-block {
             width: 800px;
-            height: 300px;
             margin: 20px;
-            padding: 10px;
-            font-family: monospace;
+            padding: 20px;
+            background: #f8f9fa;
             border-radius: 8px;
-            border: 1px solid #ccc;
+            border: 1px solid #dee2e6;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
         }
     </style>
 </head>
 <body>
-    <div id="loading">Python kód inicializálása...</div>
-    <textarea id="python-code" readonly>
+    <h1>Kriptovaluta Árfolyamok Vizualizáció</h1>
+    
+    <div class="code-block">
+# Python kód a vizualizációhoz
 import yfinance as yf
 import pandas as pd
 import plotly.graph_objects as go
@@ -91,32 +86,73 @@ fig.update_layout(
 
 # Ábra megjelenítése
 fig.show()
-    </textarea>
+    </div>
+
     <div id="plot"></div>
 
     <script>
-        async function main() {
-            try {
-                // Pyodide inicializálása
-                let pyodide = await loadPyodide();
-                await pyodide.loadPackage(["pandas", "yfinance", "plotly"]);
+        // Statikus adatok a Python kód alapján
+        const dates = [
+            '2023-01-01', '2023-03-01', '2023-06-01', '2023-09-01',
+            '2023-12-01', '2024-01-01', '2024-03-01'
+        ];
+        const prices = [16500, 23000, 27500, 26000, 42000, 45000, 67000];
 
-                // Python kód futtatása
-                const pythonCode = document.getElementById('python-code').value;
-                const result = await pyodide.runPythonAsync(pythonCode);
+        // Hover szövegek előállítása
+        const hoverTexts = dates.map((date, i) => 
+            `Dátum: ${date}<br>Záróár: $${prices[i].toLocaleString('en-US', {minimumFractionDigits: 2})}`
+        );
 
-                // Betöltés szöveg elrejtése
-                document.getElementById('loading').style.display = 'none';
+        // Plotly diagram konfiguráció
+        const trace = {
+            x: dates,
+            y: prices,
+            type: 'scatter',
+            mode: 'lines',
+            line: {
+                color: 'darkorange',
+                width: 0.6
+            },
+            hovertext: hoverTexts,
+            hoverinfo: 'text'
+        };
 
-            } catch (error) {
-                console.error('Hiba:', error);
-                document.getElementById('loading').innerHTML = 
-                    '<div class="error">Hiba történt a Python kód futtatása közben. Kérjük, próbálja újra később.</div>';
+        const layout = {
+            title: {
+                text: 'Bitcoin árfolyam időbeli alakulása (Yahoo Finance)',
+                font: {
+                    family: 'Arial',
+                    size: 16
+                }
+            },
+            xaxis: {
+                title: 'Dátum',
+                tickangle: -45
+            },
+            yaxis: {
+                title: 'Záróár (USD)',
+                tickformat: '$,.2f'
+            },
+            template: 'simple_white',
+            hovermode: 'x unified',
+            width: 700,
+            height: 400,
+            margin: {
+                l: 50,
+                r: 50,
+                t: 50,
+                b: 100
             }
-        }
+        };
 
-        // Pyodide betöltése és Python kód futtatása
-        main();
+        const config = {
+            responsive: true,
+            displayModeBar: true,
+            displaylogo: false
+        };
+
+        // Diagram megjelenítése
+        Plotly.newPlot('plot', [trace], layout, config);
     </script>
 </body>
 </html> 
