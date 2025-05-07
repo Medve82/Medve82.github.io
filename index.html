@@ -1,45 +1,154 @@
 <!DOCTYPE html>
 <html lang="hu">
 <head>
-    <meta charset="UTF-8">
-    <title>Python kód futtatása Colab-ban</title>
-    <style>
-        body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
-        .btn {
-            background: #4285F4;
-            color: white;
-            padding: 15px 30px;
-            border: none;
-            border-radius: 6px;
-            font-size: 18px;
-            cursor: pointer;
-            text-decoration: none;
-        }
-        .btn:hover { background: #3367D6; }
-        pre {
-            background: #f8f9fa;
-            border-radius: 8px;
-            border: 1px solid #dee2e6;
-            padding: 20px;
-            width: 80%;
-            margin: 30px auto;
-            text-align: left;
-            font-family: monospace;
-            white-space: pre-wrap;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Kriptovaluta Árfolyamok</title>
+  <!-- Chart.js és ApexCharts könyvtárak -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    h2 {
+      margin-top: 40px;
+    }
+    .chart-container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+  </style>
 </head>
 <body>
-    <h1>Python kód futtatása Google Colab-ban</h1>
-    <a class="btn" href="https://colab.research.google.com/drive/1uCYFG6wboo3Jen1Sc4ln9NLfnMgbEA9l?usp=drive_link#scrollTo=Re-Qvgh6HPzI" target="_blank">
-        Nyisd meg a Colab-ban!
-    </a>
-    <pre>
-# Itt jelenik meg a notebook fő Python kódja, például:
-import yfinance as yf
-import pandas as pd
-import plotly.graph_objects as go
-# ...
-    </pre>
+
+  <h1>Kriptovaluta Árfolyam Vizualizáció</h1>
+
+  <!-- Vonaldiagram -->
+  <h2>Vonaldiagram – Bitcoin (BTC) árfolyam</h2>
+  <div class="chart-container">
+    <canvas id="lineChart"></canvas>
+  </div>
+
+  <!-- Gyertyadiagram -->
+  <h2>Gyertyadiagram – BTC OHLC adatok</h2>
+  <div class="chart-container">
+    <div id="candlestickChart"></div>
+  </div>
+
+  <!-- Hőtérkép -->
+  <h2>Hőtérkép – Napi %-os változások</h2>
+  <div class="chart-container">
+    <div id="heatmapChart"></div>
+  </div>
+
+  <script>
+    // Vonaldiagram – Bitcoin árfolyam
+    async function fetchLineChartData() {
+      try {
+        const response = await fetch('https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=7');
+        const data = await response.json();
+        const labels = data.prices.map(item => {
+          const date = new Date(item[0]);
+          return `${date.getMonth()+1}/${date.getDate()}`;
+        });
+        const prices = data.prices.map(item => item[1]);
+
+        const ctx = document.getElementById('lineChart').getContext('2d');
+        new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'BTC árfolyam (USD)',
+              data: prices,
+              borderColor: 'orange',
+              backgroundColor: 'rgba(255,165,0,0.2)',
+              fill: true,
+              tension: 0.3
+            }]
+          }
+        });
+      } catch (error) {
+        console.error('Hiba a vonaldiagram adatainak lekérésekor:', error);
+      }
+    }
+
+    // Gyertyadiagram – BTC OHLC adatok
+    async function fetchCandlestickData() {
+      try {
+        const response = await fetch('https://api.coingecko.com/api/v3/coins/bitcoin/ohlc?vs_currency=usd&days=7');
+        const data = await response.json();
+        const seriesData = data.map(item => ({
+          x: new Date(item[0]),
+          y: [item[1], item[2], item[3], item[4]]
+        }));
+
+        const options = {
+          chart: {
+            type: 'candlestick',
+            height: 350
+          },
+          series: [{
+            data: seriesData
+          }],
+          title: {
+            text: 'BTC OHLC',
+            align: 'left'
+          },
+          xaxis: {
+            type: 'datetime'
+          },
+          yaxis: {
+            tooltip: {
+              enabled: true
+            }
+          }
+        };
+
+        new ApexCharts(document.querySelector("#candlestickChart"), options).render();
+      } catch (error) {
+        console.error('Hiba a gyertyadiagram adatainak lekérésekor:', error);
+      }
+    }
+
+    // Hőtérkép – Napi %-os változások
+    async function fetchHeatmapData() {
+      try {
+        const response = await fetch('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin,ethereum,cardano,ripple,solana,dogecoin&order=market_cap_desc&per_page=6&page=1&sparkline=false');
+        const data = await response.json();
+        const seriesData = data.map(coin => ({
+          x: coin.symbol.toUpperCase(),
+          y: coin.price_change_percentage_24h
+        }));
+
+        const options = {
+          chart: {
+            height: 350,
+            type: 'heatmap'
+          },
+          dataLabels: {
+            enabled: false
+          },
+          colors: ["#008FFB"],
+          series: [{
+            name: "Napi változás (%)",
+            data: seriesData
+          }]
+        };
+
+        new ApexCharts(document.querySelector("#heatmapChart"), options).render();
+      } catch (error) {
+        console.error('Hiba a hőtérkép adatainak lekérésekor:', error);
+      }
+    }
+
+    // Adatok lekérése és diagramok megjelenítése
+    fetchLineChartData();
+    fetchCandlestickData();
+    fetchHeatmapData();
+  </script>
+
 </body>
 </html>
