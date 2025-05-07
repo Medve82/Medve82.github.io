@@ -36,6 +36,25 @@
     .reset-button:hover {
       background-color: #45a049;
     }
+    .nav-button {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      padding: 10px 15px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      z-index: 1000;
+    }
+    .nav-button:hover {
+      background-color: #45a049;
+    }
+    .nav-button:disabled {
+      background-color: #cccccc;
+      cursor: not-allowed;
+    }
   </style>
 </head>
 <body>
@@ -96,6 +115,10 @@
       doge: [],
       dates: []
     };
+    let currentZoom = {
+      min: 0,
+      max: 1
+    };
 
     async function fetchLineChartData() {
       try {
@@ -109,7 +132,6 @@
         const ethData = await ethResponse.json();
         const dogeData = await dogeResponse.json();
 
-        // Tároljuk az összes adatot
         allData = {
           btc: btcData.prices,
           eth: ethData.prices,
@@ -214,6 +236,14 @@
                   backgroundColor: 'rgba(0,0,0,0.1)'
                 }
               }
+            },
+            tooltip: {
+              enabled: true,
+              mode: 'index',
+              intersect: false
+            },
+            legend: {
+              position: 'top'
             }
           }
         }
@@ -226,6 +256,12 @@
 
       // Event listener a visszaállítás gombhoz
       document.getElementById('resetButton').addEventListener('click', resetZoom);
+
+      // Event listener a zoom eseményekhez
+      lineChart.options.plugins.zoom.zoom.onZoom = function(zoom) {
+        currentZoom = zoom;
+        updateNavButtons();
+      };
     }
 
     function updateChartVisibility() {
@@ -237,9 +273,57 @@
       }
     }
 
+    function updateNavButtons() {
+      if (!lineChart) return;
+
+      const xAxis = lineChart.scales.x;
+      const backButton = document.getElementById('backButton');
+      const forwardButton = document.getElementById('forwardButton');
+      
+      backButton.disabled = xAxis.min <= xAxis.getPixelForValue(0);
+      forwardButton.disabled = xAxis.max >= xAxis.getPixelForValue(allData.dates.length - 1);
+    }
+
+    function moveBack() {
+      if (!lineChart) return;
+
+      const xAxis = lineChart.scales.x;
+      const range = xAxis.max - xAxis.min;
+      const step = range * 0.5;
+
+      const newMin = Math.max(xAxis.min - step, xAxis.getPixelForValue(0));
+      const newMax = Math.max(xAxis.max - step, xAxis.min + range);
+
+      lineChart.zoom({
+        min: newMin,
+        max: newMax
+      });
+
+      updateNavButtons();
+    }
+
+    function moveForward() {
+      if (!lineChart) return;
+
+      const xAxis = lineChart.scales.x;
+      const range = xAxis.max - xAxis.min;
+      const step = range * 0.5;
+
+      const newMin = Math.min(xAxis.min + step, xAxis.getPixelForValue(allData.dates.length - 1) - range);
+      const newMax = Math.min(xAxis.max + step, xAxis.getPixelForValue(allData.dates.length - 1));
+
+      lineChart.zoom({
+        min: newMin,
+        max: newMax
+      });
+
+      updateNavButtons();
+    }
+
     function resetZoom() {
       if (lineChart) {
         lineChart.resetZoom();
+        updateNavButtons();
       }
     }
 
@@ -293,21 +377,7 @@
               autoScaleYaxis: true
             },
             toolbar: {
-              autoSelected: 'zoom',
-              tools: {
-                download: false,
-                selection: true,
-                zoom: true,
-                zoomin: true,
-                zoomout: true,
-                pan: true,
-                reset: true
-              }
-            },
-            events: {
-              beforeResetZoom: function() {
-                return true;
-              }
+              show: false
             }
           },
           series: seriesData,
@@ -321,6 +391,11 @@
           yaxis: {
             tooltip: {
               enabled: true
+            },
+            labels: {
+              formatter: function(value) {
+                return value.toFixed(2);
+              }
             }
           },
           plotOptions: {
