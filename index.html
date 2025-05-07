@@ -26,8 +26,19 @@
   <h1>Kriptovaluta Árfolyam Vizualizáció</h1>
 
   <!-- Vonaldiagram -->
-  <h2>Vonaldiagram – Bitcoin (BTC) árfolyam</h2>
+  <h2>Vonaldiagram – Kriptovaluta árfolyamok</h2>
   <div class="chart-container">
+    <div class="checkbox-container" style="margin-bottom: 20px;">
+      <label style="margin-right: 15px;">
+        <input type="checkbox" id="btcCheckbox" checked> Bitcoin (BTC)
+      </label>
+      <label style="margin-right: 15px;">
+        <input type="checkbox" id="ethCheckbox" checked> Ethereum (ETH)
+      </label>
+      <label>
+        <input type="checkbox" id="dogeCheckbox" checked> Dogecoin (DOGE)
+      </label>
+    </div>
     <canvas id="lineChart"></canvas>
   </div>
 
@@ -44,41 +55,105 @@
   </div>
 
   <script>
-    // Vonaldiagram – Bitcoin árfolyam
+    let lineChart;
+
     async function fetchLineChartData() {
       try {
-        const response = await fetch('https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=7');
-        const data = await response.json();
-        const labels = data.prices.map(item => {
+        const [btcResponse, ethResponse, dogeResponse] = await Promise.all([
+          fetch('https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=365'),
+          fetch('https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=365'),
+          fetch('https://api.coingecko.com/api/v3/coins/dogecoin/market_chart?vs_currency=usd&days=365')
+        ]);
+
+        const btcData = await btcResponse.json();
+        const ethData = await ethResponse.json();
+        const dogeData = await dogeResponse.json();
+
+        const labels = btcData.prices.map(item => {
           const date = new Date(item[0]);
           return `${date.getMonth()+1}/${date.getDate()}`;
         });
-        const prices = data.prices.map(item => item[1]);
 
         const ctx = document.getElementById('lineChart').getContext('2d');
-        new Chart(ctx, {
+        
+        // Tároljuk az adatokat globálisan
+        window.chartData = {
+          btc: btcData.prices.map(item => item[1]),
+          eth: ethData.prices.map(item => item[1]),
+          doge: dogeData.prices.map(item => item[1])
+        };
+
+        // Inicializáljuk a diagramot
+        lineChart = new Chart(ctx, {
           type: 'line',
           data: {
             labels: labels,
-            datasets: [{
-              label: 'BTC árfolyam (USD)',
-              data: prices,
-              borderColor: 'orange',
-              backgroundColor: 'rgba(255,165,0,0.2)',
-              fill: true,
-              tension: 0.3
-            }]
+            datasets: [
+              {
+                label: 'BTC árfolyam (USD)',
+                data: window.chartData.btc,
+                borderColor: 'orange',
+                backgroundColor: 'rgba(255,165,0,0.2)',
+                fill: false,
+                tension: 0.3,
+                hidden: !document.getElementById('btcCheckbox').checked
+              },
+              {
+                label: 'ETH árfolyam (USD)',
+                data: window.chartData.eth,
+                borderColor: 'blue',
+                backgroundColor: 'rgba(0,0,255,0.2)',
+                fill: false,
+                tension: 0.3,
+                hidden: !document.getElementById('ethCheckbox').checked
+              },
+              {
+                label: 'DOGE árfolyam (USD)',
+                data: window.chartData.doge,
+                borderColor: 'green',
+                backgroundColor: 'rgba(0,255,0,0.2)',
+                fill: false,
+                tension: 0.3,
+                hidden: !document.getElementById('dogeCheckbox').checked
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            interaction: {
+              mode: 'index',
+              intersect: false,
+            },
+            scales: {
+              y: {
+                beginAtZero: false
+              }
+            }
           }
         });
+
+        // Event listener-ek hozzáadása a checkbox-okhoz
+        document.getElementById('btcCheckbox').addEventListener('change', updateChartVisibility);
+        document.getElementById('ethCheckbox').addEventListener('change', updateChartVisibility);
+        document.getElementById('dogeCheckbox').addEventListener('change', updateChartVisibility);
       } catch (error) {
         console.error('Hiba a vonaldiagram adatainak lekérésekor:', error);
+      }
+    }
+
+    function updateChartVisibility() {
+      if (lineChart) {
+        lineChart.data.datasets[0].hidden = !document.getElementById('btcCheckbox').checked;
+        lineChart.data.datasets[1].hidden = !document.getElementById('ethCheckbox').checked;
+        lineChart.data.datasets[2].hidden = !document.getElementById('dogeCheckbox').checked;
+        lineChart.update();
       }
     }
 
     // Gyertyadiagram – BTC OHLC adatok
     async function fetchCandlestickData() {
       try {
-        const response = await fetch('https://api.coingecko.com/api/v3/coins/bitcoin/ohlc?vs_currency=usd&days=7');
+        const response = await fetch('https://api.coingecko.com/api/v3/coins/bitcoin/ohlc?vs_currency=usd&days=365');
         const data = await response.json();
         const seriesData = data.map(item => ({
           x: new Date(item[0]),
