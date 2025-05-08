@@ -107,6 +107,26 @@
     <div id="heatmapChart"></div>
   </div>
 
+  <!-- Napi százalékos változások vonaldiagramja -->
+  <h2>Napi százalékos árfolyamváltozások</h2>
+  <div class="chart-container">
+    <button class="reset-button" id="resetPercentageButton">Visszaállítás</button>
+    <div class="controls" style="margin-bottom: 20px;">
+      <div class="checkbox-container">
+        <label style="margin-right: 15px;">
+          <input type="checkbox" id="btcPercentageCheckbox" checked> Bitcoin (BTC)
+        </label>
+        <label style="margin-right: 15px;">
+          <input type="checkbox" id="ethPercentageCheckbox" checked> Ethereum (ETH)
+        </label>
+        <label>
+          <input type="checkbox" id="dogePercentageCheckbox" checked> Dogecoin (DOGE)
+        </label>
+      </div>
+    </div>
+    <canvas id="percentageChart"></canvas>
+  </div>
+
   <script>
     let lineChart;
     let allData = {
@@ -437,26 +457,144 @@
     // Hőtérkép – Napi %-os változások
     async function fetchHeatmapData() {
       try {
-        const response = await fetch('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=bitcoin,ethereum,cardano,ripple,solana,dogecoin&order=market_cap_desc&per_page=6&page=1&sparkline=false');
+        const response = await fetch('https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=1825'); // 5 év = 1825 nap
         const data = await response.json();
-        const seriesData = data.map(coin => ({
-          x: coin.symbol.toUpperCase(),
-          y: coin.price_change_percentage_24h
-        }));
+        
+        // Havi adatok csoportosítása
+        const monthlyData = [];
+        const marketCaps = data.market_caps;
+        
+        // Évek és hónapok inicializálása
+        const years = new Set();
+        const months = ['Jan', 'Feb', 'Már', 'Ápr', 'Máj', 'Jún', 'Júl', 'Aug', 'Szep', 'Okt', 'Nov', 'Dec'];
+        
+        // Adatok csoportosítása hónapok szerint
+        marketCaps.forEach(item => {
+          const date = new Date(item[0]);
+          const year = date.getFullYear();
+          const month = date.getMonth();
+          years.add(year);
+          
+          const key = `${year}-${month}`;
+          if (!monthlyData[key]) {
+            monthlyData[key] = {
+              year: year,
+              month: month,
+              values: []
+            };
+          }
+          monthlyData[key].values.push(item[1]);
+        });
+
+        // Átlagok számítása és adatok formázása
+        const heatmapData = [];
+        const sortedYears = Array.from(years).sort((a, b) => b - a); // Évek csökkenő sorrendben
+
+        sortedYears.forEach(year => {
+          months.forEach((monthName, monthIndex) => {
+            const key = `${year}-${monthIndex}`;
+            if (monthlyData[key]) {
+              const avgValue = monthlyData[key].values.reduce((sum, val) => sum + val, 0) / monthlyData[key].values.length;
+              heatmapData.push({
+                x: monthName,
+                y: year.toString(),
+                value: avgValue / 1000000000 // Konvertálás milliárd USD-be
+              });
+            }
+          });
+        });
 
         const options = {
           chart: {
-            height: 350,
-            type: 'heatmap'
+            height: 400,
+            type: 'heatmap',
+            toolbar: {
+              show: false
+            }
           },
           dataLabels: {
-            enabled: false
+            enabled: true,
+            formatter: function(val) {
+              return val.toFixed(1) + 'B$';
+            },
+            style: {
+              fontSize: '10px'
+            }
           },
           colors: ["#008FFB"],
           series: [{
-            name: "Napi változás (%)",
-            data: seriesData
-          }]
+            name: "Havi átlagos piaci kapitalizáció",
+            data: heatmapData
+          }],
+          title: {
+            text: 'Bitcoin havi piaci kapitalizáció (milliárd USD)',
+            align: 'left'
+          },
+          xaxis: {
+            type: 'category',
+            categories: months,
+            labels: {
+              style: {
+                fontSize: '12px'
+              }
+            }
+          },
+          yaxis: {
+            type: 'category',
+            categories: sortedYears,
+            labels: {
+              style: {
+                fontSize: '12px'
+              }
+            }
+          },
+          tooltip: {
+            y: {
+              formatter: function(val) {
+                return val + '. év';
+              }
+            },
+            x: {
+              formatter: function(val) {
+                return val + '. hónap';
+              }
+            },
+            z: {
+              formatter: function(val) {
+                return val.toFixed(2) + ' milliárd USD';
+              }
+            }
+          },
+          plotOptions: {
+            heatmap: {
+              shadeIntensity: 0.5,
+              radius: 0,
+              useFillColorAsStroke: true,
+              colorScale: {
+                ranges: [{
+                  from: 0,
+                  to: 100,
+                  color: '#008FFB',
+                  name: 'Alacsony'
+                }, {
+                  from: 100,
+                  to: 500,
+                  color: '#00E396',
+                  name: 'Közepes'
+                }, {
+                  from: 500,
+                  to: 1000,
+                  color: '#FEB019',
+                  name: 'Magas'
+                }, {
+                  from: 1000,
+                  to: 2000,
+                  color: '#FF4560',
+                  name: 'Nagyon magas'
+                }]
+              }
+            }
+          }
         };
 
         new ApexCharts(document.querySelector("#heatmapChart"), options).render();
@@ -465,10 +603,166 @@
       }
     }
 
+    // Napi százalékos változások vonaldiagramja
+    let percentageChart;
+
+    async function fetchPercentageData() {
+      try {
+        const [btcResponse, ethResponse, dogeResponse] = await Promise.all([
+          fetch('https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=365'),
+          fetch('https://api.coingecko.com/api/v3/coins/ethereum/market_chart?vs_currency=usd&days=365'),
+          fetch('https://api.coingecko.com/api/v3/coins/dogecoin/market_chart?vs_currency=usd&days=365')
+        ]);
+
+        const btcData = await btcResponse.json();
+        const ethData = await ethResponse.json();
+        const dogeData = await dogeResponse.json();
+
+        // Százalékos változások számítása
+        const calculatePercentageChanges = (prices) => {
+          const changes = [];
+          for (let i = 1; i < prices.length; i++) {
+            const previousPrice = prices[i-1][1];
+            const currentPrice = prices[i][1];
+            const percentageChange = ((currentPrice - previousPrice) / previousPrice) * 100;
+            changes.push([prices[i][0], percentageChange]);
+          }
+          return changes;
+        };
+
+        const btcChanges = calculatePercentageChanges(btcData.prices);
+        const ethChanges = calculatePercentageChanges(ethData.prices);
+        const dogeChanges = calculatePercentageChanges(dogeData.prices);
+
+        const dates = btcChanges.map(item => new Date(item[0]));
+
+        const ctx = document.getElementById('percentageChart').getContext('2d');
+
+        if (percentageChart) {
+          percentageChart.destroy();
+        }
+
+        percentageChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: dates.map(date => `${date.getMonth()+1}/${date.getDate()}`),
+            datasets: [
+              {
+                label: 'BTC napi változás (%)',
+                data: btcChanges.map(item => item[1]),
+                borderColor: 'red',
+                backgroundColor: 'rgba(255,0,0,0.2)',
+                fill: false,
+                tension: 0.2,
+                borderWidth: 1.5,
+                pointRadius: 2,
+                hidden: !document.getElementById('btcPercentageCheckbox').checked
+              },
+              {
+                label: 'ETH napi változás (%)',
+                data: ethChanges.map(item => item[1]),
+                borderColor: 'blue',
+                backgroundColor: 'rgba(0,0,255,0.2)',
+                fill: false,
+                tension: 0.2,
+                borderWidth: 1.5,
+                pointRadius: 2,
+                hidden: !document.getElementById('ethPercentageCheckbox').checked
+              },
+              {
+                label: 'DOGE napi változás (%)',
+                data: dogeChanges.map(item => item[1]),
+                borderColor: 'green',
+                backgroundColor: 'rgba(0,255,0,0.2)',
+                fill: false,
+                tension: 0.2,
+                borderWidth: 1.5,
+                pointRadius: 2,
+                hidden: !document.getElementById('dogePercentageCheckbox').checked
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            interaction: {
+              mode: 'index',
+              intersect: false,
+            },
+            scales: {
+              y: {
+                beginAtZero: false,
+                title: {
+                  display: true,
+                  text: 'Napi változás (%)'
+                }
+              }
+            },
+            plugins: {
+              zoom: {
+                pan: {
+                  enabled: true,
+                  mode: 'x',
+                  modifierKey: 'ctrl',
+                },
+                zoom: {
+                  wheel: {
+                    enabled: true,
+                  },
+                  pinch: {
+                    enabled: true
+                  },
+                  mode: 'x',
+                  drag: {
+                    enabled: true,
+                    backgroundColor: 'rgba(0,0,0,0.1)'
+                  }
+                }
+              },
+              tooltip: {
+                enabled: true,
+                mode: 'index',
+                intersect: false,
+                callbacks: {
+                  label: function(context) {
+                    return `${context.dataset.label}: ${context.parsed.y.toFixed(2)}%`;
+                  }
+                }
+              },
+              legend: {
+                position: 'top'
+              }
+            }
+          }
+        });
+
+        // Event listener-ek hozzáadása
+        document.getElementById('btcPercentageCheckbox').addEventListener('change', function() {
+          percentageChart.data.datasets[0].hidden = !this.checked;
+          percentageChart.update();
+        });
+        document.getElementById('ethPercentageCheckbox').addEventListener('change', function() {
+          percentageChart.data.datasets[1].hidden = !this.checked;
+          percentageChart.update();
+        });
+        document.getElementById('dogePercentageCheckbox').addEventListener('change', function() {
+          percentageChart.data.datasets[2].hidden = !this.checked;
+          percentageChart.update();
+        });
+
+        document.getElementById('resetPercentageButton').addEventListener('click', function() {
+          percentageChart.resetZoom();
+        });
+
+      } catch (error) {
+        console.error('Hiba a százalékos változások lekérésekor:', error);
+      }
+    }
+
     // Adatok lekérése és diagramok megjelenítése
     fetchLineChartData();
     fetchCandlestickData();
     fetchHeatmapData();
+    fetchPercentageData();
   </script>
 
 </body>
