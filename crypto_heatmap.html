@@ -39,36 +39,49 @@
     <script>
         // Adatok letöltése és feldolgozása
         async function fetchData() {
-            const symbols = {
-                "Bitcoin": "BTC-USD",
-                "Ethereum": "ETH-USD",
-                "Dogecoin": "DOGE-USD"
-            };
+    try {
+        const symbols = {
+            "Bitcoin": "BTC-USD",
+            "Ethereum": "ETH-USD",
+            "Dogecoin": "DOGE-USD"
+        };
 
-            const combined = [];
-            
-            for (const [name, ticker] of Object.entries(symbols)) {
-                const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=5y`);
-                const data = await response.json();
-                
-                const timestamps = data.chart.result[0].timestamp;
-                const volumes = data.chart.result[0].indicators.quote[0].volume;
-                
-                for (let i = 0; i < timestamps.length; i++) {
-                    const date = new Date(timestamps[i] * 1000);
-                    combined.push({
-                        Date: date,
-                        Volume_K: volumes[i] / 1000,
-                        Crypto: name,
-                        Month: date.toLocaleString('hu-HU', { month: 'long' }),
-                        Year: date.getFullYear()
-                    });
-                }
+        const combined = [];
+        for (const [name, ticker] of Object.entries(symbols)) {
+            const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=5y`);
+            if (!response.ok) {
+                console.error(`Hiba történt az API elérésekor: ${response.statusText}`);
+                continue;
+            }
+            const data = await response.json();
+            if (!data.chart || !data.chart.result || data.chart.result.length === 0) {
+                console.error("Nem érkezett adat az API-tól.");
+                continue;
             }
 
-            return combined;
+            const timestamps = data.chart.result[0].timestamp || [];
+            const volumes = data.chart.result[0].indicators.quote[0].volume || [];
+
+            for (let i = 0; i < timestamps.length; i++) {
+                const date = new Date(timestamps[i] * 1000);
+                if (isNaN(date.getTime())) continue;
+
+                combined.push({
+                    Date: date,
+                    Volume_K: volumes[i] / 1000 || 0,
+                    Crypto: name,
+                    Month: date.toLocaleString('hu-HU', { month: 'long' }),
+                    Year: date.getFullYear()
+                });
+            }
         }
 
+        return combined;
+    } catch (error) {
+        console.error("Hiba történt az adatok letöltésekor:", error);
+        return [];
+    }
+}
         // Hőtérképek létrehozása
         async function createHeatmaps() {
             const data = await fetchData();
