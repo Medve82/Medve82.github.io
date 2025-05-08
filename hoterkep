@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bitcoin Piaci Kapitalizáció Hőtérkép</title>
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        #heatmapChart {
+            margin-top: 20px;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            font-size: 18px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Bitcoin Piaci Kapitalizáció Hőtérkép</h1>
+        <div id="heatmapChart"></div>
+        <div id="loading" class="loading">Adatok betöltése...</div>
+    </div>
+
+    <script>
+        async function fetchHeatmapData() {
+            try {
+                const response = await fetch('https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=1095');
+                const data = await response.json();
+                
+                if (!data || !data.market_caps) {
+                    throw new Error('Hibás adatok érkeztek');
+                }
+
+                // Havi adatok csoportosítása
+                const monthlyData = {};
+                const marketCaps = data.market_caps;
+                const years = new Set();
+                const months = ['Jan', 'Feb', 'Már', 'Ápr', 'Máj', 'Jún', 'Júl', 'Aug', 'Szep', 'Okt', 'Nov', 'Dec'];
+                
+                // Adatok csoportosítása hónapok szerint
+                marketCaps.forEach(item => {
+                    const date = new Date(item[0]);
+                    const year = date.getFullYear();
+                    const month = date.getMonth();
+                    years.add(year);
+                    
+                    const key = `${year}-${month}`;
+                    if (!monthlyData[key]) {
+                        monthlyData[key] = {
+                            year: year,
+                            month: month,
+                            values: []
+                        };
+                    }
+                    monthlyData[key].values.push(item[1]);
+                });
+
+                // Átlagok számítása és adatok formázása
+                const heatmapData = [];
+                const sortedYears = Array.from(years).sort((a, b) => b - a);
+
+                sortedYears.forEach(year => {
+                    months.forEach((monthName, monthIndex) => {
+                        const key = `${year}-${monthIndex}`;
+                        if (monthlyData[key]) {
+                            const avgValue = monthlyData[key].values.reduce((sum, val) => sum + val, 0) / monthlyData[key].values.length;
+                            heatmapData.push({
+                                x: monthName,
+                                y: year.toString(),
+                                value: avgValue / 1000000000 // Konvertálás milliárd USD-be
+                            });
+                        }
+                    });
+                });
+
+                const options = {
+                    chart: {
+                        height: 400,
+                        type: 'heatmap',
+                        toolbar: {
+                            show: false
+                        }
+                    },
+                    dataLabels: {
+                        enabled: true,
+                        formatter: function(val) {
+                            return val.toFixed(1) + 'B$';
+                        },
+                        style: {
+                            fontSize: '10px'
+                        }
+                    },
+                    colors: ["#008FFB"],
+                    series: [{
+                        name: "Havi átlagos piaci kapitalizáció",
+                        data: heatmapData
+                    }],
+                    title: {
+                        text: 'Bitcoin havi piaci kapitalizáció (milliárd USD)',
+                        align: 'left'
+                    },
+                    xaxis: {
+                        type: 'category',
+                        categories: months,
+                        labels: {
+                            style: {
+                                fontSize: '12px'
+                            }
+                        }
+                    },
+                    yaxis: {
+                        type: 'category',
+                        categories: sortedYears,
+                        labels: {
+                            style: {
+                                fontSize: '12px'
+                            }
+                        }
+                    },
+                    tooltip: {
+                        y: {
+                            formatter: function(val) {
+                                return val + '. év';
+                            }
+                        },
+                        x: {
+                            formatter: function(val) {
+                                return val + '. hónap';
+                            }
+                        },
+                        z: {
+                            formatter: function(val) {
+                                return val.toFixed(2) + ' milliárd USD';
+                            }
+                        }
+                    },
+                    plotOptions: {
+                        heatmap: {
+                            shadeIntensity: 0.5,
+                            radius: 0,
+                            useFillColorAsStroke: true,
+                            colorScale: {
+                                ranges: [{
+                                    from: 0,
+                                    to: 2000,
+                                    color: '#008FFB',
+                                    name: 'Piaci kapitalizáció'
+                                }]
+                            }
+                        }
+                    }
+                };
+
+                const chart = new ApexCharts(document.querySelector("#heatmapChart"), options);
+                chart.render();
+                document.getElementById('loading').style.display = 'none';
+
+            } catch (error) {
+                console.error('Hiba a hőtérkép adatainak lekérésekor:', error);
+                document.getElementById('loading').textContent = 'Hiba történt az adatok betöltése közben. Kérjük, próbálja újra később.';
+            }
+        }
+
+        // Oldal betöltésekor indítsuk el az adatok lekérését
+        document.addEventListener('DOMContentLoaded', fetchHeatmapData);
+    </script>
+</body>
+</html>
